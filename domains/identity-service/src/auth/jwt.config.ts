@@ -1,17 +1,21 @@
 /**
  * JWT configuration for the Identity bounded context.
  *
- * Values come from environment variables (see .env.example at repo root).
+ * Tokens are signed with **asymmetric cryptography (RS256)**. The RSA PRIVATE key
+ * lives ONLY in identity-service (see `JwtKeysService`); every other service
+ * verifies tokens with the PUBLIC key served here via JWKS
+ * (`GET /auth/.well-known/jwks.json`) or a static PEM.
  *
  * - Access tokens: 15 minutes (`JWT_ACCESS_TTL`)
  * - Refresh tokens: 30 days (`JWT_REFRESH_TTL`), rotated on every use
+ * - Algorithm: `RS256`
  *
  * NOTES:
- * - Secrets here are development-only fallbacks. In production they MUST be
- *   provided via environment variables.
+ * - The private key is loaded from `JWT_PRIVATE_KEY` (PEM) or generated ephemeral
+ *   in development. It must NEVER leave this service.
  * - `account_id` is deliberately NOT signed in by this service: accounts are
- *   owned by accounts-service. Per ADR-001 the final token must carry
- *   `account_id` — the api-gateway composites that claim downstream.
+ *   owned by accounts-service. The api-gateway forwards the identity claims and
+ *   the frontend fetches account state from accounts-service `GET /me`.
  */
 
 const parsePositiveInt = (
@@ -23,13 +27,10 @@ const parsePositiveInt = (
 };
 
 export const JWT_CONFIG = {
+  /** JWT `iss` claim — all services must check it during verification. */
   issuer: 'mazraebaan-identity',
-
-  accessSecret: process.env.JWT_SECRET ?? 'dev-only-access-secret-change-me',
-  refreshSecret:
-    process.env.JWT_REFRESH_SECRET ??
-    process.env.JWT_SECRET ??
-    'dev-only-refresh-secret-change-me',
+  /** Signature algorithm. Access + refresh tokens share the RS256 keypair. */
+  algorithm: 'RS256' as const,
 
   accessTtlSeconds: parsePositiveInt(process.env.JWT_ACCESS_TTL, 900),
   refreshTtlSeconds: parsePositiveInt(

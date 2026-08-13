@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -10,6 +11,8 @@ import { AccountInvitesModule } from './account-invites/account-invites.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { StaffAccessGrantsModule } from './staff-access-grants/staff-access-grants.module';
 import { MeModule } from './me/me.module';
+import { AccessTokenGuard } from './common/auth/access-token.guard';
+import { JwtPublicKeyService } from './common/auth/jwt-public-key.service';
 
 @Module({
   imports: [
@@ -34,6 +37,14 @@ import { MeModule } from './me/me.module';
     MeModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    JwtPublicKeyService,
+    AccessTokenGuard,
+    {
+      provide: APP_GUARD,
+      useExisting: AccessTokenGuard,
+    },
+  ],
 })
 export class AppModule {}

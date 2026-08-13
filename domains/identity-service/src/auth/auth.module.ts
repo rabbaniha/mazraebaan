@@ -3,6 +3,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { JwtKeysService } from './jwt-keys.service';
+import { JwksController } from './jwks.controller';
 import { UsersModule } from '../users/users.module';
 import { AuthIdentitiesModule } from '../auth-identities/auth-identities.module';
 import { OtpVerificationsModule } from '../otp-verifications/otp-verifications.module';
@@ -10,6 +12,7 @@ import { RefreshTokensModule } from '../refresh-tokens/refresh-tokens.module';
 import { AccessTokenStrategy } from './strategies/access-token.strategy';
 import { RefreshTokenStrategy } from './strategies/refresh-token.strategy';
 import { JWT_CONFIG } from './jwt.config';
+import { AccessTokenGuard } from './guards/access-token.guard';
 
 @Module({
   imports: [
@@ -18,16 +21,27 @@ import { JWT_CONFIG } from './jwt.config';
     OtpVerificationsModule,
     RefreshTokensModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
-    JwtModule.register({
-      secret: JWT_CONFIG.accessSecret,
-      signOptions: {
-        expiresIn: JWT_CONFIG.accessTtlSeconds,
-        issuer: JWT_CONFIG.issuer,
-      },
+    JwtModule.registerAsync({
+      inject: [JwtKeysService],
+      useFactory: (jwtKeys: JwtKeysService) => ({
+        secret: jwtKeys.getPrivateKeyPem(),
+        signOptions: {
+          algorithm: JWT_CONFIG.algorithm,
+          expiresIn: JWT_CONFIG.accessTtlSeconds,
+          issuer: JWT_CONFIG.issuer,
+          keyid: jwtKeys.getKid(),
+        },
+      }),
     }),
   ],
-  controllers: [AuthController],
-  providers: [AuthService, AccessTokenStrategy, RefreshTokenStrategy],
-  exports: [AuthService, JwtModule],
+  controllers: [AuthController, JwksController],
+  providers: [
+    AuthService,
+    JwtKeysService,
+    AccessTokenGuard,
+    AccessTokenStrategy,
+    RefreshTokenStrategy,
+  ],
+  exports: [AuthService, JwtModule, JwtKeysService],
 })
 export class AuthModule {}
