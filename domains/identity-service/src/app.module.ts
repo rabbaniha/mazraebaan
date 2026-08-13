@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -8,6 +9,7 @@ import { UserDevicesModule } from './user-devices/user-devices.module';
 import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
 import { AuthModule } from './auth/auth.module';
 import { OtpVerificationsModule } from './otp-verifications/otp-verifications.module';
+import { AccessTokenGuard } from './auth/guards/access-token.guard';
 
 @Module({
   imports: [
@@ -30,6 +32,12 @@ import { OtpVerificationsModule } from './otp-verifications/otp-verifications.mo
     OtpVerificationsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: AccessTokenGuard,
+    },
+  ],
 })
 export class AppModule {}

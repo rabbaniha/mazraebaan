@@ -1,5 +1,7 @@
-import { Controller, Get, Headers } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import { MeService } from './me.service';
+import { AccessTokenGuard } from '../common/auth/access-token.guard';
+import { CurrentUserId } from '../common/auth/current-user.decorator';
 
 @Controller('me')
 export class MeController {
@@ -9,11 +11,13 @@ export class MeController {
    * GET /me — the frontend asks the backend for the user's account state.
    * The backend NEVER redirects; it only returns state (Step 6).
    *
-   * TODO: replace the `x-user-id` header with the JWT `sub` claim forwarded by
-   * the api-gateway once JWT auth middleware is implemented.
+   * The access token is verified independently here (RS256 + public key), so
+   * the user id comes from the cryptographic `sub` claim — never from a
+   * client-supplied header.
    */
   @Get()
-  getMe(@Headers('x-user-id') userId?: string) {
-    return this.meService.getUserContext(userId ?? '');
+  @UseGuards(AccessTokenGuard)
+  getMe(@CurrentUserId() userId: string) {
+    return this.meService.getUserContext(userId);
   }
 }

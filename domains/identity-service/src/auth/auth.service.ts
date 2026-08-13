@@ -15,6 +15,7 @@ import { RegisterDto } from './dto/register.dto';
 import { VerifyDto } from './dto/verify.dto';
 import { LoginDto } from './dto/login.dto';
 import { JWT_CONFIG } from './jwt.config';
+import { JwtKeysService } from './jwt-keys.service';
 import { JwtPayload, TokenPair } from './interfaces/jwt-payload.interface';
 import { RefreshTokenAuthContext } from './strategies/refresh-token.strategy';
 
@@ -63,6 +64,7 @@ export class AuthService {
     private readonly otpService: OtpVerificationsService,
     private readonly jwtService: JwtService,
     private readonly refreshTokensService: RefreshTokensService,
+    private readonly jwtKeys: JwtKeysService,
   ) {}
 
   // ──────────────────────────────────────────────
@@ -324,7 +326,9 @@ export class AuthService {
         locale: user.locale,
       } satisfies JwtPayload,
       {
-        secret: JWT_CONFIG.accessSecret,
+        secret: this.jwtKeys.getPrivateKeyPem(),
+        algorithm: JWT_CONFIG.algorithm,
+        keyid: this.jwtKeys.getKid(),
         expiresIn: JWT_CONFIG.accessTtlSeconds,
         issuer: JWT_CONFIG.issuer,
       },
@@ -343,7 +347,9 @@ export class AuthService {
         family_id: familyId,
       } satisfies JwtPayload,
       {
-        secret: JWT_CONFIG.refreshSecret,
+        secret: this.jwtKeys.getPrivateKeyPem(),
+        algorithm: JWT_CONFIG.algorithm,
+        keyid: this.jwtKeys.getKid(),
         expiresIn: JWT_CONFIG.refreshTtlSeconds,
         issuer: JWT_CONFIG.issuer,
       },

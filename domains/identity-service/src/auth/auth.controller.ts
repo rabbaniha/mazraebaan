@@ -7,6 +7,7 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { LogoutDto } from './dto/logout.dto';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { Public } from './decorators/public.decorator';
 import { AccessTokenUser } from './interfaces/jwt-payload.interface';
 import { RefreshTokenAuthContext } from './strategies/refresh-token.strategy';
 
@@ -28,6 +29,7 @@ export class AuthController {
    * No account is created here — accounts live in accounts-service now.
    */
   @Post('register')
+  @Public()
   async register(@Body() dto: RegisterDto, @Req() req: RequestLike) {
     return this.authService.register(dto, this.extractContext(req));
   }
@@ -37,6 +39,7 @@ export class AuthController {
    * Step 2: Verify OTP code → mark identity as verified → activate user.
    */
   @Post('verify')
+  @Public()
   async verify(@Body() dto: VerifyDto) {
     return this.authService.verify(dto);
   }
@@ -49,6 +52,7 @@ export class AuthController {
    * state (accountIds, ownedAccountId, memberships, requiresAccount).
    */
   @Post('login')
+  @Public()
   async login(@Body() dto: LoginDto, @Req() req: RequestLike) {
     return this.authService.login(dto, this.extractContext(req));
   }
@@ -59,6 +63,7 @@ export class AuthController {
    * Body: { "refreshToken": "..." }
    */
   @Post('refresh')
+  @Public()
   @UseGuards(AuthGuard('jwt-refresh'))
   async refresh(
     @Body() _dto: RefreshDto,
@@ -77,6 +82,7 @@ export class AuthController {
    * by the guard so an attacker cannot revoke someone else's session.
    */
   @Post('logout')
+  @Public()
   @UseGuards(AuthGuard('jwt-refresh'))
   async logout(
     @Req() req: { user: RefreshTokenAuthContext },
