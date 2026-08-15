@@ -4,6 +4,7 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtKeysService } from './jwt-keys.service';
+import { JwtKeysModule } from './jwt-keys.module';
 import { JwksController } from './jwks.controller';
 import { UsersModule } from '../users/users.module';
 import { AuthIdentitiesModule } from '../auth-identities/auth-identities.module';
@@ -20,8 +21,10 @@ import { AccessTokenGuard } from './guards/access-token.guard';
     AuthIdentitiesModule,
     OtpVerificationsModule,
     RefreshTokensModule,
+    JwtKeysModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
+      imports: [JwtKeysModule],
       inject: [JwtKeysService],
       useFactory: (jwtKeys: JwtKeysService) => ({
         secret: jwtKeys.getPrivateKeyPem(),
@@ -37,7 +40,6 @@ import { AccessTokenGuard } from './guards/access-token.guard';
   controllers: [AuthController, JwksController],
   providers: [
     AuthService,
-    JwtKeysService,
     AccessTokenGuard,
     AccessTokenStrategy,
     RefreshTokenStrategy,
