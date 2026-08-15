@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Headers, Param, Post, UnauthorizedException } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Param,
+  Post,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Public } from '../common/auth/public.decorator';
 import { ProvisionOwnerAccountDto } from './dto/provision-owner-account.dto';
 import { OnboardingService } from './onboarding.service';
@@ -30,6 +38,8 @@ export class OnboardingController {
     if (!expected || serviceKey !== expected) {
       throw new UnauthorizedException('Invalid internal service credentials.');
     }
-    return { hasActiveAccount: await this.onboardingService.hasActiveAccount(userId) };
+    return {
+      hasActiveAccount: await this.onboardingService.hasActiveAccount(userId),
+    };
   }
 }

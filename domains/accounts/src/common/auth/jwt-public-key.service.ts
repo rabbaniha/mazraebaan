@@ -35,14 +35,15 @@ export class JwtPublicKeyService {
   private async fetchJwksKey(uri: string): Promise<KeyObject> {
     const res = await fetch(uri);
     if (!res.ok) {
-      throw new Error(`Failed to fetch JWKS from ${uri} (status ${res.status})`);
+      throw new Error(
+        `Failed to fetch JWKS from ${uri} (status ${res.status})`,
+      );
     }
     const body = (await res.json()) as {
       keys?: Array<{ kty?: string; n?: string; e?: string }>;
     };
     const jwk =
-      body.keys?.find((k) => k.kty === 'RSA' && k.n && k.e) ??
-      body.keys?.[0];
+      body.keys?.find((k) => k.kty === 'RSA' && k.n && k.e) ?? body.keys?.[0];
     if (!jwk?.n || !jwk?.e) {
       throw new Error('No usable RSA public key found in JWKS');
     }

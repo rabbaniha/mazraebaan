@@ -19,14 +19,22 @@ export class OnboardingService {
         relations: { account: true },
       });
       if (existing?.account) {
-        return { account: existing.account, membership: existing, alreadyProvisioned: true };
+        return {
+          account: existing.account,
+          membership: existing,
+          alreadyProvisioned: true,
+        };
       }
 
-      let ownerRole = await manager.getRepository(Role).findOne({ where: { name: 'owner' } });
+      let ownerRole = await manager
+        .getRepository(Role)
+        .findOne({ where: { name: 'owner' } });
       if (!ownerRole) {
         ownerRole = await manager.getRepository(Role).save(
           manager.getRepository(Role).create({
-            name: 'owner', isSystem: true, description: 'Full control of an account',
+            name: 'owner',
+            isSystem: true,
+            description: 'Full control of an account',
           }),
         );
       }
@@ -40,13 +48,18 @@ export class OnboardingService {
       );
       const membership = await manager.getRepository(AccountMember).save(
         manager.getRepository(AccountMember).create({
-          accountId: account.id, userId: dto.userId, status: 'active',
-          invitedAt: new Date(), joinedAt: new Date(), invitedBy: null,
+          accountId: account.id,
+          userId: dto.userId,
+          status: 'active',
+          invitedAt: new Date(),
+          joinedAt: new Date(),
+          invitedBy: null,
         }),
       );
       await manager.getRepository(AccountMemberRole).save(
         manager.getRepository(AccountMemberRole).create({
-          accountMemberId: membership.id, roleId: ownerRole.id,
+          accountMemberId: membership.id,
+          roleId: ownerRole.id,
         }),
       );
       return { account, membership, alreadyProvisioned: false };
@@ -54,8 +67,10 @@ export class OnboardingService {
   }
 
   async hasActiveAccount(userId: string): Promise<boolean> {
-    return (await this.dataSource.getRepository(AccountMember).count({
-      where: { userId, status: 'active' },
-    })) > 0;
+    return (
+      (await this.dataSource.getRepository(AccountMember).count({
+        where: { userId, status: 'active' },
+      })) > 0
+    );
   }
 }

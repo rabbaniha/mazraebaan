@@ -43,14 +43,21 @@ export class AuthController {
   @Post('verify')
   @Public()
   async verify(@Body() dto: VerifyDto, @Req() req: RequestLike) {
-    return this.authService.verify(dto, this.extractOnboardingToken(req), this.extractContext(req));
+    return this.authService.verify(
+      dto,
+      this.extractOnboardingToken(req),
+      this.extractContext(req),
+    );
   }
 
   /** Creates the new user's first account; an access token is never accepted here. */
   @Post('onboarding/account')
   @Public()
   createOwnAccount(@Body() dto: CreateAccountDto, @Req() req: RequestLike) {
-    return this.authService.createOwnAccount(this.extractOnboardingToken(req), dto);
+    return this.authService.createOwnAccount(
+      this.extractOnboardingToken(req),
+      dto,
+    );
   }
 
   /**
@@ -137,7 +144,10 @@ export class AuthController {
   }
 
   private extractOnboardingToken(req: RequestLike): string {
-    const value = typeof req.headers?.authorization === 'string' ? req.headers.authorization : undefined;
+    const value =
+      typeof req.headers?.authorization === 'string'
+        ? req.headers.authorization
+        : undefined;
     if (!value?.startsWith('Onboarding ')) {
       throw new UnauthorizedException('Missing onboarding session.');
     }

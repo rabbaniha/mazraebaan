@@ -43,9 +43,7 @@ export class AccessTokenGuard implements CanActivate {
       return true;
     }
 
-    const req = context
-      .switchToHttp()
-      .getRequest<AuthenticatedRequest>();
+    const req = context.switchToHttp().getRequest<AuthenticatedRequest>();
 
     const token = extractBearerToken(req.headers.authorization);
     if (!token) {
@@ -57,9 +55,20 @@ export class AccessTokenGuard implements CanActivate {
       const payload = jwt.verify(token, key, {
         algorithms: [ALGORITHM],
         issuer: ISSUER,
-      }) as { sub?: string; type?: string; onboarding_completed?: boolean; auth_identity_id?: string; email?: string | null; locale?: string };
+      }) as {
+        sub?: string;
+        type?: string;
+        onboarding_completed?: boolean;
+        auth_identity_id?: string;
+        email?: string | null;
+        locale?: string;
+      };
 
-      if (payload.type !== 'access' || payload.onboarding_completed !== true || typeof payload.sub !== 'string') {
+      if (
+        payload.type !== 'access' ||
+        payload.onboarding_completed !== true ||
+        typeof payload.sub !== 'string'
+      ) {
         throw new UnauthorizedException('Invalid token type.');
       }
 
