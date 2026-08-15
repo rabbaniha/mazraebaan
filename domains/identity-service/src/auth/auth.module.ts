@@ -44,6 +44,6 @@ import { AccessTokenGuard } from './guards/access-token.guard';
     AccessTokenStrategy,
     RefreshTokenStrategy,
   ],
-  exports: [AuthService, JwtModule, JwtKeysService],
+  exports: [AuthService, JwtModule, JwtKeysModule],
 })
 export class AuthModule {}

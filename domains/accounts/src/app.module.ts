@@ -11,8 +11,8 @@ import { AccountInvitesModule } from './account-invites/account-invites.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { StaffAccessGrantsModule } from './staff-access-grants/staff-access-grants.module';
 import { MeModule } from './me/me.module';
+import { AuthModule } from './common/auth/auth.module';
 import { AccessTokenGuard } from './common/auth/access-token.guard';
-import { JwtPublicKeyService } from './common/auth/jwt-public-key.service';
 
 @Module({
   imports: [
@@ -35,12 +35,11 @@ import { JwtPublicKeyService } from './common/auth/jwt-public-key.service';
     OrganizationsModule,
     StaffAccessGrantsModule,
     MeModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
-    JwtPublicKeyService,
-    AccessTokenGuard,
     {
       provide: APP_GUARD,
       useExisting: AccessTokenGuard,
