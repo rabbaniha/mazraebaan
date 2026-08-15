@@ -9,8 +9,12 @@ import {
 import { AtLeastOneOf } from '../../common/validators/at-least-one-of.validator';
 import { RequireTogether } from '../../common/validators/require-together.validator';
 
-@AtLeastOneOf(['email', 'phoneNumber'], { message: 'Provide an email or a mobile number.' })
-@RequireTogether(['phoneNumber', 'phoneCountryCode'], { message: 'A phone number requires its country code.' })
+@AtLeastOneOf(['email', 'phoneNumber'], {
+  message: 'Provide an email or a mobile number.',
+})
+@RequireTogether(['phoneNumber', 'phoneCountryCode'], {
+  message: 'A phone number requires its country code.',
+})
 export class RegisterDto {
   // --- Required fields ---
 

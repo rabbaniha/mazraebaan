@@ -84,8 +84,10 @@ export class AuthService {
 
     // 2. Create User via UsersService (NOT via repo directly)
     const normalizedEmail = dto.email?.trim().toLowerCase();
-    const phoneE164 = dto.phoneNumber && dto.phoneCountryCode
-      ? `+${dto.phoneCountryCode}${dto.phoneNumber}` : undefined;
+    const phoneE164 =
+      dto.phoneNumber && dto.phoneCountryCode
+        ? `+${dto.phoneCountryCode}${dto.phoneNumber}`
+        : undefined;
     const user = await this.usersService.create({
       firstName: dto.firstName,
       lastName: dto.lastName,
@@ -147,36 +149,62 @@ export class AuthService {
   async createOwnAccount(token: string, dto: CreateAccountDto) {
     const session = await this.onboardingSessions.requireActive(token);
     if (session.status === 'verification_pending') {
-      return { message: 'Account already created. Verify your contact to continue.' };
+      return {
+        message: 'Account already created. Verify your contact to continue.',
+      };
     }
     const user = await this.usersService.findOne(session.userId);
     if (!user) throw new NotFoundException('User not found.');
-    const provisioned = await this.accountsOnboarding.provisionOwnerAccount(user.id, dto);
+    const provisioned = await this.accountsOnboarding.provisionOwnerAccount(
+      user.id,
+      dto,
+    );
     const channel = user.email ? 'email' : 'phone';
     await this.onboardingSessions.markVerificationPending(session, channel);
     await this.otpService.requestOtp({
       purpose: channel === 'email' ? 'register_email' : 'register_phone',
-      email: channel === 'email' ? user.email ?? undefined : undefined,
-      phone: channel === 'phone' ? `+${user.phoneCountryCode}${user.phoneNumber}` : undefined,
+      email: channel === 'email' ? (user.email ?? undefined) : undefined,
+      phone:
+        channel === 'phone'
+          ? `+${user.phoneCountryCode}${user.phoneNumber}`
+          : undefined,
       userId: user.id,
     });
-    return { message: 'Account created. Verification code sent.', accountId: provisioned.account.id, verificationChannel: channel };
+    return {
+      message: 'Account created. Verification code sent.',
+      accountId: provisioned.account.id,
+      verificationChannel: channel,
+    };
   }
 
   // Step 3: Verify OTP → activate identity and issue the first token pair.
-  async verify(dto: VerifyDto, token?: string, requestContext: RequestContext = {}) {
-    if (!token) throw new UnauthorizedException('Onboarding session is required.');
+  async verify(
+    dto: VerifyDto,
+    token?: string,
+    requestContext: RequestContext = {},
+  ) {
+    if (!token)
+      throw new UnauthorizedException('Onboarding session is required.');
     const session = await this.onboardingSessions.requireActive(token);
-    if (session.status !== 'verification_pending' || !session.verificationChannel) {
+    if (
+      session.status !== 'verification_pending' ||
+      !session.verificationChannel
+    ) {
       throw new UnauthorizedException('Create an account before verification.');
     }
     const user = await this.usersService.findOne(session.userId);
     if (!user) throw new NotFoundException('User not found.');
-    const identity = (await this.authIdentitiesService.findByUserId(user.id)).find((item) => item.isPrimary);
-    if (!identity) throw new UnauthorizedException('No primary identity found.');
+    const identity = (
+      await this.authIdentitiesService.findByUserId(user.id)
+    ).find((item) => item.isPrimary);
+    if (!identity)
+      throw new UnauthorizedException('No primary identity found.');
 
     await this.otpService.verifyOtp({
-      purpose: session.verificationChannel === 'email' ? 'register_email' : 'register_phone',
+      purpose:
+        session.verificationChannel === 'email'
+          ? 'register_email'
+          : 'register_phone',
       code: dto.code,
       userId: user.id,
     });
@@ -197,8 +225,10 @@ export class AuthService {
 
   async login(dto: LoginDto, requestContext: RequestContext = {}) {
     const normalizedEmail = dto.email?.trim().toLowerCase();
-    const phoneE164 = dto.phoneNumber && dto.phoneCountryCode
-      ? `+${dto.phoneCountryCode}${dto.phoneNumber}` : undefined;
+    const phoneE164 =
+      dto.phoneNumber && dto.phoneCountryCode
+        ? `+${dto.phoneCountryCode}${dto.phoneNumber}`
+        : undefined;
     const identity = await this.authIdentitiesService.findByProvider(
       normalizedEmail ? 'email_password' : 'phone_password',
       normalizedEmail ?? phoneE164!,
@@ -342,7 +372,9 @@ export class AuthService {
     options: { familyId?: string } = {},
   ): Promise<TokenPair> {
     if (!(await this.accountsOnboarding.hasActiveAccount(user.id))) {
-      throw new UnauthorizedException('An active account is required before tokens can be issued.');
+      throw new UnauthorizedException(
+        'An active account is required before tokens can be issued.',
+      );
     }
     const now = new Date();
 
