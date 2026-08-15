@@ -76,6 +76,7 @@ export class OtpVerificationsService {
     // Find the latest unverified OTP for this user+purpose
     const otp = await this.otpRepo.findOne({
       where: {
+        userId: dto.userId,
         purpose: dto.purpose,
         verifiedAt: IsNull(),
         expiresAt: MoreThan(new Date()),

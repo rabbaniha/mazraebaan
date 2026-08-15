@@ -13,6 +13,7 @@ import { StaffAccessGrantsModule } from './staff-access-grants/staff-access-gran
 import { MeModule } from './me/me.module';
 import { AuthModule } from './common/auth/auth.module';
 import { AccessTokenGuard } from './common/auth/access-token.guard';
+import { OnboardingModule } from './onboarding/onboarding.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { AccessTokenGuard } from './common/auth/access-token.guard';
     StaffAccessGrantsModule,
     MeModule,
     AuthModule,
+    OnboardingModule,
   ],
   controllers: [AppController],
   providers: [

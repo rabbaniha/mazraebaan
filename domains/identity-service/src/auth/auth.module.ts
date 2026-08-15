@@ -14,6 +14,7 @@ import { AccessTokenStrategy } from './strategies/access-token.strategy';
 import { RefreshTokenStrategy } from './strategies/refresh-token.strategy';
 import { JWT_CONFIG } from './jwt.config';
 import { AccessTokenGuard } from './guards/access-token.guard';
+import { OnboardingModule } from '../onboarding/onboarding.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { AccessTokenGuard } from './guards/access-token.guard';
     AuthIdentitiesModule,
     OtpVerificationsModule,
     RefreshTokensModule,
+    OnboardingModule,
     JwtKeysModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({

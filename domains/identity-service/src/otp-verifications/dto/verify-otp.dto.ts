@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsIn, Length, MaxLength } from 'class-validator';
+import { IsString, IsIn, Length, IsOptional } from 'class-validator';
 
 export class VerifyOtpDto {
   @IsString()
@@ -20,9 +20,8 @@ export class VerifyOtpDto {
   @Length(6, 6)
   code!: string;
 
-  // --- Contact (used to identify the user) ---
-
-  @IsEmail()
-  @MaxLength(320)
-  email!: string;
+  @IsOptional()
+  @IsString()
+  @Length(26, 26)
+  userId?: string;
 }

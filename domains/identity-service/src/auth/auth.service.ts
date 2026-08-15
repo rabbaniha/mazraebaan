@@ -18,6 +18,9 @@ import { JWT_CONFIG } from './jwt.config';
 import { JwtKeysService } from './jwt-keys.service';
 import { JwtPayload, TokenPair } from './interfaces/jwt-payload.interface';
 import { RefreshTokenAuthContext } from './strategies/refresh-token.strategy';
+import { OnboardingSessionService } from '../onboarding/onboarding-session.service';
+import { AccountsOnboardingClient } from '../onboarding/accounts-onboarding.client';
+import { CreateAccountDto } from '../onboarding/dto/create-own-account.dto';
 
 const BCRYPT_ROUNDS = 12;
 
@@ -65,10 +68,12 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly refreshTokensService: RefreshTokensService,
     private readonly jwtKeys: JwtKeysService,
+    private readonly onboardingSessions: OnboardingSessionService,
+    private readonly accountsOnboarding: AccountsOnboardingClient,
   ) {}
 
   // ──────────────────────────────────────────────
-  // Step 1: Register — create user + identity + OTP
+  // Step 1: Register — create a pending identity and an onboarding session.
   // ──────────────────────────────────────────────
 
   async register(dto: RegisterDto, _requestContext: RequestContext) {
@@ -78,11 +83,16 @@ export class AuthService {
     const calendarPreference = calendarPreferenceFromLocale(locale);
 
     // 2. Create User via UsersService (NOT via repo directly)
+    const normalizedEmail = dto.email?.trim().toLowerCase();
+    const phoneE164 = dto.phoneNumber && dto.phoneCountryCode
+      ? `+${dto.phoneCountryCode}${dto.phoneNumber}` : undefined;
     const user = await this.usersService.create({
       firstName: dto.firstName,
       lastName: dto.lastName,
       displayName: `${dto.firstName} ${dto.lastName}`,
-      email: dto.email,
+      email: normalizedEmail,
+      phoneNumber: dto.phoneNumber,
+      phoneCountryCode: dto.phoneCountryCode,
       locale,
       timezone,
       calendarPreference,
@@ -91,25 +101,23 @@ export class AuthService {
     // 3. Hash password
     const credentialHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
 
-    // 4. Create AuthIdentity via AuthIdentitiesService
-    const normalizedEmail = dto.email.trim().toLowerCase();
+    // 4. Create a password identity for the preferred contact.
+    const providerType = normalizedEmail ? 'email_password' : 'phone_password';
+    const providerSubject = normalizedEmail ?? phoneE164!;
     const identity = await this.authIdentitiesService.createForUser(
       user.id,
-      'email_password',
-      normalizedEmail,
+      providerType,
+      providerSubject,
       {
         emailNormalized: normalizedEmail,
+        phoneE164,
         credentialHash,
         isPrimary: true,
       },
     );
 
-    // 5. Generate and send OTP (logs to console until notifications-service exists)
-    await this.otpService.requestOtp({
-      purpose: 'register_email',
-      email: normalizedEmail,
-      userId: user.id,
-    });
+    // No OTP and no access token are issued until the first account exists.
+    const { session, token } = await this.onboardingSessions.create(user.id);
 
     // 6. Return safe response
     return {
@@ -125,45 +133,61 @@ export class AuthService {
         status: user.status,
         createdAt: user.createdAt,
       },
-      message:
-        'Registration successful. Please verify your email with the OTP code sent.',
+      message: 'Registration is pending. Create your account to continue.',
       identityId: identity.id,
+      onboardingToken: token,
+      onboardingExpiresAt: session.expiresAt,
     };
   }
 
   // ──────────────────────────────────────────────
-  // Step 2: Verify — confirm OTP → mark identity verified
+  // Step 2: Create own account, then start contact verification.
   // ──────────────────────────────────────────────
 
-  async verify(dto: VerifyDto) {
-    // 1. Find identity by email
-    const normalizedEmail = dto.email.trim().toLowerCase();
-    const identity = await this.authIdentitiesService.findByProvider(
-      'email_password',
-      normalizedEmail,
-    );
-    if (!identity) {
-      throw new UnauthorizedException('No account found with this email.');
+  async createOwnAccount(token: string, dto: CreateAccountDto) {
+    const session = await this.onboardingSessions.requireActive(token);
+    if (session.status === 'verification_pending') {
+      return { message: 'Account already created. Verify your contact to continue.' };
     }
-
-    // 2. Verify OTP via OtpService
-    await this.otpService.verifyOtp({
-      purpose: 'register_email',
-      email: normalizedEmail,
-      code: dto.code,
+    const user = await this.usersService.findOne(session.userId);
+    if (!user) throw new NotFoundException('User not found.');
+    const provisioned = await this.accountsOnboarding.provisionOwnerAccount(user.id, dto);
+    const channel = user.email ? 'email' : 'phone';
+    await this.onboardingSessions.markVerificationPending(session, channel);
+    await this.otpService.requestOtp({
+      purpose: channel === 'email' ? 'register_email' : 'register_phone',
+      email: channel === 'email' ? user.email ?? undefined : undefined,
+      phone: channel === 'phone' ? `+${user.phoneCountryCode}${user.phoneNumber}` : undefined,
+      userId: user.id,
     });
+    return { message: 'Account created. Verification code sent.', accountId: provisioned.account.id, verificationChannel: channel };
+  }
 
-    // 3. Mark identity as verified
+  // Step 3: Verify OTP → activate identity and issue the first token pair.
+  async verify(dto: VerifyDto, token?: string, requestContext: RequestContext = {}) {
+    if (!token) throw new UnauthorizedException('Onboarding session is required.');
+    const session = await this.onboardingSessions.requireActive(token);
+    if (session.status !== 'verification_pending' || !session.verificationChannel) {
+      throw new UnauthorizedException('Create an account before verification.');
+    }
+    const user = await this.usersService.findOne(session.userId);
+    if (!user) throw new NotFoundException('User not found.');
+    const identity = (await this.authIdentitiesService.findByUserId(user.id)).find((item) => item.isPrimary);
+    if (!identity) throw new UnauthorizedException('No primary identity found.');
+
+    await this.otpService.verifyOtp({
+      purpose: session.verificationChannel === 'email' ? 'register_email' : 'register_phone',
+      code: dto.code,
+      userId: user.id,
+    });
     await this.authIdentitiesService.markVerified(identity.id);
-
-    // 4. Activate the user
     await this.usersService.activate(identity.userId);
-
-    // TODO: Publish user.verified event via Outbox Pattern
-
+    await this.onboardingSessions.complete(session);
+    const tokens = await this.issueTokens(user, identity.id, requestContext);
     return {
-      message: 'Email verified successfully. You can now log in.',
+      message: 'Registration completed successfully.',
       userId: identity.userId,
+      ...tokens,
     };
   }
 
@@ -172,17 +196,19 @@ export class AuthService {
   // ──────────────────────────────────────────────
 
   async login(dto: LoginDto, requestContext: RequestContext = {}) {
-    const normalizedEmail = dto.email.trim().toLowerCase();
+    const normalizedEmail = dto.email?.trim().toLowerCase();
+    const phoneE164 = dto.phoneNumber && dto.phoneCountryCode
+      ? `+${dto.phoneCountryCode}${dto.phoneNumber}` : undefined;
     const identity = await this.authIdentitiesService.findByProvider(
-      'email_password',
-      normalizedEmail,
+      normalizedEmail ? 'email_password' : 'phone_password',
+      normalizedEmail ?? phoneE164!,
     );
     if (!identity) {
       throw new UnauthorizedException('Invalid credentials.');
     }
 
     if (!identity.isVerified) {
-      throw new UnauthorizedException('Email is not verified yet.');
+      throw new UnauthorizedException('Contact is not verified yet.');
     }
 
     if (!identity.credentialHash) {
@@ -315,6 +341,9 @@ export class AuthService {
     context: RequestContext,
     options: { familyId?: string } = {},
   ): Promise<TokenPair> {
+    if (!(await this.accountsOnboarding.hasActiveAccount(user.id))) {
+      throw new UnauthorizedException('An active account is required before tokens can be issued.');
+    }
     const now = new Date();
 
     const accessToken = await this.jwtService.signAsync(
@@ -324,6 +353,7 @@ export class AuthService {
         auth_identity_id: authIdentityId,
         email: user.email,
         locale: user.locale,
+        onboarding_completed: true,
       } satisfies JwtPayload,
       {
         secret: this.jwtKeys.getPrivateKeyPem(),
@@ -345,6 +375,7 @@ export class AuthService {
         auth_identity_id: authIdentityId,
         jti,
         family_id: familyId,
+        onboarding_completed: true,
       } satisfies JwtPayload,
       {
         secret: this.jwtKeys.getPrivateKeyPem(),

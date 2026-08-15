@@ -57,9 +57,9 @@ export class AccessTokenGuard implements CanActivate {
       const payload = jwt.verify(token, key, {
         algorithms: [ALGORITHM],
         issuer: ISSUER,
-      }) as { sub?: string; type?: string; auth_identity_id?: string; email?: string | null; locale?: string };
+      }) as { sub?: string; type?: string; onboarding_completed?: boolean; auth_identity_id?: string; email?: string | null; locale?: string };
 
-      if (payload.type !== 'access' || typeof payload.sub !== 'string') {
+      if (payload.type !== 'access' || payload.onboarding_completed !== true || typeof payload.sub !== 'string') {
         throw new UnauthorizedException('Invalid token type.');
       }
 

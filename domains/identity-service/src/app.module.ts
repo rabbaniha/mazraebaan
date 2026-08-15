@@ -10,6 +10,7 @@ import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
 import { AuthModule } from './auth/auth.module';
 import { OtpVerificationsModule } from './otp-verifications/otp-verifications.module';
 import { AccessTokenGuard } from './auth/guards/access-token.guard';
+import { OnboardingModule } from './onboarding/onboarding.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { AccessTokenGuard } from './auth/guards/access-token.guard';
     RefreshTokensModule,
     AuthModule,
     OtpVerificationsModule,
+    OnboardingModule,
   ],
   controllers: [AppController],
   providers: [
