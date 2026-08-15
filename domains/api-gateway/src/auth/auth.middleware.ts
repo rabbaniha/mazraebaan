@@ -23,6 +23,7 @@ export function isPublicPath(method: string, path: string): boolean {
       name === '/login' ||
       name === '/refresh' ||
       name === '/logout' ||
+      name === '/onboarding/account' ||
       name === '/.well-known/jwks.json'
     );
   }

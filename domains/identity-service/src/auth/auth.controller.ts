@@ -1,4 +1,5 @@
 import { Controller, Post, Get, Body, Req, UseGuards } from '@nestjs/common';
+import { UnauthorizedException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -10,6 +11,7 @@ import { CurrentUser } from './decorators/current-user.decorator';
 import { Public } from './decorators/public.decorator';
 import { AccessTokenUser } from './interfaces/jwt-payload.interface';
 import { RefreshTokenAuthContext } from './strategies/refresh-token.strategy';
+import { CreateAccountDto } from '../onboarding/dto/create-own-account.dto';
 
 interface RequestLike {
   headers: Record<string, string | string[] | undefined>;
@@ -40,8 +42,15 @@ export class AuthController {
    */
   @Post('verify')
   @Public()
-  async verify(@Body() dto: VerifyDto) {
-    return this.authService.verify(dto);
+  async verify(@Body() dto: VerifyDto, @Req() req: RequestLike) {
+    return this.authService.verify(dto, this.extractOnboardingToken(req), this.extractContext(req));
+  }
+
+  /** Creates the new user's first account; an access token is never accepted here. */
+  @Post('onboarding/account')
+  @Public()
+  createOwnAccount(@Body() dto: CreateAccountDto, @Req() req: RequestLike) {
+    return this.authService.createOwnAccount(this.extractOnboardingToken(req), dto);
   }
 
   /**
@@ -125,5 +134,13 @@ export class AuthController {
         ? req.headers['user-agent']
         : undefined;
     return { ip, userAgent };
+  }
+
+  private extractOnboardingToken(req: RequestLike): string {
+    const value = typeof req.headers?.authorization === 'string' ? req.headers.authorization : undefined;
+    if (!value?.startsWith('Onboarding ')) {
+      throw new UnauthorizedException('Missing onboarding session.');
+    }
+    return value.slice('Onboarding '.length).trim();
   }
 }

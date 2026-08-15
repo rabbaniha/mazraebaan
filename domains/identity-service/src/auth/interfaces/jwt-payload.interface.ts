@@ -21,6 +21,8 @@ export interface JwtPayload {
   auth_identity_id?: string;
   email?: string | null;
   locale?: string;
+  /** Set only after Accounts confirms an active membership. */
+  onboarding_completed?: true;
   /** Unique token id — binds the refresh JWT to its DB row (token_hash). */
   jti?: string;
   /** Rotation family identifier for refresh tokens. */

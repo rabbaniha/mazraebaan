@@ -9,6 +9,7 @@ export interface AccessTokenPayload {
   auth_identity_id?: string;
   email?: string | null;
   locale?: string;
+  onboarding_completed?: true;
 }
 
 /**
@@ -69,7 +70,7 @@ export class JwtVerifier {
       issuer: this.config.issuer,
     }) as RawPayload & Partial<AccessTokenPayload>;
 
-    if (decoded.type !== 'access' || typeof decoded.sub !== 'string') {
+    if (decoded.type !== 'access' || decoded.onboarding_completed !== true || typeof decoded.sub !== 'string') {
       throw new Error('Token is not a valid access token');
     }
 
@@ -79,6 +80,7 @@ export class JwtVerifier {
       auth_identity_id: decoded.auth_identity_id,
       email: decoded.email ?? null,
       locale: decoded.locale,
+      onboarding_completed: true,
     };
   }
 }

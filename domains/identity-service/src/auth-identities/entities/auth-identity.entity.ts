@@ -38,7 +38,7 @@ export class AuthIdentity {
     length: 20,
     name: 'provider_type',
   })
-  providerType!: 'email_password' | 'phone_otp' | 'google' | 'apple';
+  providerType!: 'email_password' | 'phone_password' | 'phone_otp' | 'google' | 'apple';
 
   @Column({ type: 'text', name: 'provider_subject' })
   providerSubject!: string;
