@@ -12,6 +12,20 @@ export interface GatewayConfig {
   identityServiceUrl: string;
   /** Internal base URL of accounts-service. */
   accountsServiceUrl: string;
+  /** Internal base URL of farms-service. */
+  farmsServiceUrl: string;
+  /**
+   * Shared secret for internal service-to-service calls (accounts-service
+   * `x-internal-service-key` guard). Required so the gateway can resolve the
+   * caller's active account (ADR-001) and forward `x-account-id`.
+   */
+  internalServiceApiKey: string;
+  /**
+   * TTL (ms) for cached user → active-account resolutions. Short on purpose:
+   * membership changes take effect quickly while still shielding
+   * accounts-service from a lookup on every request.
+   */
+  accountContextCacheTtlMs: number;
   /**
    * Static public key (PEM) used to verify access tokens. When empty, the
    * public key is fetched from `jwksUri` (identity-service JWKS endpoint).
@@ -32,6 +46,12 @@ export function loadGatewayConfig(): GatewayConfig {
       process.env.IDENTITY_SERVICE_URL ?? 'http://localhost:4001',
     accountsServiceUrl:
       process.env.ACCOUNTS_SERVICE_URL ?? 'http://localhost:4002',
+    farmsServiceUrl: process.env.FARMS_SERVICE_URL ?? 'http://localhost:4003',
+    internalServiceApiKey: process.env.INTERNAL_SERVICE_API_KEY ?? '',
+    accountContextCacheTtlMs: parseInt(
+      process.env.ACCOUNT_CONTEXT_CACHE_TTL_MS ?? '60000',
+      10,
+    ),
     jwtPublicKeyPem: process.env.JWT_PUBLIC_KEY ?? '',
     jwksUri:
       process.env.JWKS_URI ??

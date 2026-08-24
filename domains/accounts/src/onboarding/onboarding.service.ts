@@ -73,4 +73,21 @@ export class OnboardingService {
       })) > 0
     );
   }
+
+  /**
+   * Resolves the user's current active account id (or null). Used by the
+   * api-gateway to composite the ADR-001 `account_id` claim into forwarded
+   * requests (`x-account-id`). Deterministic: earliest-joined active
+   * membership wins. Membership uniqueness is per (account_id, user_id), so a
+   * user may belong to several accounts over time.
+   */
+  async getActiveAccountId(userId: string): Promise<string | null> {
+    const membership = await this.dataSource
+      .getRepository(AccountMember)
+      .findOne({
+        where: { userId, status: 'active' },
+        order: { joinedAt: 'ASC', invitedAt: 'ASC' },
+      });
+    return membership?.accountId ?? null;
+  }
 }

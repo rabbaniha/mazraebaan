@@ -2,7 +2,7 @@ import { createProxyMiddleware, type Options } from 'http-proxy-middleware';
 import * as http from 'node:http';
 import type { GatewayConfig } from '../config/gateway.config';
 
-type ServiceKey = 'identity' | 'accounts';
+type ServiceKey = 'identity' | 'accounts' | 'farms';
 
 /**
  * Route table: external gateway path prefix → internal service.
@@ -25,6 +25,9 @@ const ROUTES: ReadonlyArray<readonly [string, ServiceKey]> = [
   ['/api/v1/account-invites', 'accounts'],
   ['/api/v1/organizations', 'accounts'],
   ['/api/v1/staff-access-grants', 'accounts'],
+  // farms-service (farm bounded context)
+  ['/api/v1/farms', 'farms'],
+  ['/api/v1/crop-types', 'farms'],
 ];
 
 /**
@@ -36,6 +39,7 @@ export function createGatewayProxy(config: GatewayConfig) {
   const targets: Record<ServiceKey, string> = {
     identity: config.identityServiceUrl.replace(/\/+$/, ''),
     accounts: config.accountsServiceUrl.replace(/\/+$/, ''),
+    farms: config.farmsServiceUrl.replace(/\/+$/, ''),
   };
 
   // Longest prefixes first so `/api/v1/auth-identities` beats `/api/v1/auth`.

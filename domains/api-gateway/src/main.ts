@@ -5,6 +5,7 @@ import { AppModule } from './app.module';
 import { loadGatewayConfig } from './config/gateway.config';
 import { JwtVerifier } from './auth/jwt-verifier.service';
 import { createAuthMiddleware } from './auth/auth.middleware';
+import { AccountContextService } from './auth/account-context.service';
 import { createGatewayProxy } from './proxy/proxy.middleware';
 
 async function bootstrap() {
@@ -17,7 +18,8 @@ async function bootstrap() {
   // Register auth (JWT verification) BEFORE proxy so protected routes are
   // checked before they are forwarded to an internal service.
   const verifier = new JwtVerifier(config);
-  app.use(createAuthMiddleware(config, verifier));
+  const accountContext = new AccountContextService(config);
+  app.use(createAuthMiddleware(config, verifier, accountContext));
   app.use(createGatewayProxy(config));
 
   await app.listen(config.port);
