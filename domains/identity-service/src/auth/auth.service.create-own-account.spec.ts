@@ -1,9 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { DataSource, EntityManager } from 'typeorm';
 import { ulid } from 'ulid';
 import { AuthService } from '../auth/auth.service';
 import { OnboardingSessionService } from '../onboarding/onboarding-session.service';
 import { AccountsOnboardingClient } from '../onboarding/accounts-onboarding.client';
+import { OutboxService } from '../events/outbox.service';
 import { CreateAccountDto } from '../onboarding/dto/create-own-account.dto';
 import { OnboardingSession } from '../onboarding/entities/onboarding-session.entity';
 import { UsersService } from '../users/users.service';
@@ -32,8 +34,10 @@ describe('AuthService.createOwnAccount (identity)', () => {
   let service: AuthService;
   let sessions: jest.Mocked<OnboardingSessionService>;
   let accounts: jest.Mocked<AccountsOnboardingClient>;
+  let outbox: { enqueue: jest.Mock };
   let users: jest.Mocked<UsersService>;
   let otp: jest.Mocked<OtpVerificationsService>;
+  let dataSource: { transaction: jest.Mock };
 
   const accountDto: CreateAccountDto = {
     displayName: 'مزرعه سارا',
@@ -47,12 +51,10 @@ describe('AuthService.createOwnAccount (identity)', () => {
     } as unknown as jest.Mocked<OnboardingSessionService>;
 
     accounts = {
-      provisionOwnerAccount: jest.fn(() => ({
-        account: { id: ulid() },
-        membership: { id: ulid() },
-      })) as never,
       hasActiveAccount: jest.fn(() => true) as never,
     };
+
+    outbox = { enqueue: jest.fn().mockResolvedValue({ id: ulid() }) };
 
     users = {
       findOne: jest.fn(),
@@ -64,17 +66,25 @@ describe('AuthService.createOwnAccount (identity)', () => {
       verifyOtp: jest.fn(),
     } as unknown as jest.Mocked<OtpVerificationsService>;
 
+    dataSource = {
+      transaction: jest.fn((cb: (manager: EntityManager) => Promise<void>) =>
+        cb({} as EntityManager),
+      ),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [AuthService],
     })
       .useMocker((token) => {
         if (token === OnboardingSessionService) return sessions;
         if (token === AccountsOnboardingClient) return accounts;
+        if (token === OutboxService) return outbox;
         if (token === UsersService) return users;
         if (token === AuthIdentitiesService)
           return { findByUserId: jest.fn() } as never;
         if (token === OtpVerificationsService) return otp;
         if (token === JwtService) return { signAsync: jest.fn() } as never;
+        if (token === DataSource) return dataSource;
         return {};
       })
       .compile();
@@ -86,7 +96,7 @@ describe('AuthService.createOwnAccount (identity)', () => {
     expect(service).toBeDefined();
   });
 
-  it('provisions the account via the internal client and starts email verification', async () => {
+  it('commits the outbox event in the same transaction and starts email verification', async () => {
     const userId = ulid();
     const session = makeSession({ userId, status: 'account_required' });
     sessions.requireActive.mockResolvedValue(session);
@@ -100,13 +110,19 @@ describe('AuthService.createOwnAccount (identity)', () => {
     const result = await service.createOwnAccount('raw-token', accountDto);
 
     expect(sessions.requireActive).toHaveBeenCalledWith('raw-token');
-    expect(accounts.provisionOwnerAccount).toHaveBeenCalledWith(
-      userId,
-      expect.objectContaining({ displayName: 'مزرعه سارا' }),
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(outbox.enqueue).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        eventType: 'account.provisioning.requested',
+        aggregateId: session.id,
+        payload: { userId, account: accountDto },
+      }),
     );
     expect(sessions.markVerificationPending).toHaveBeenCalledWith(
       session,
       'email',
+      expect.anything(),
     );
     expect(otp.requestOtp).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -116,7 +132,7 @@ describe('AuthService.createOwnAccount (identity)', () => {
       }),
     );
     expect(result.verificationChannel).toBe('email');
-    expect(result.accountId).toBeDefined();
+    expect((result as { accountId?: string }).accountId).toBeUndefined();
   });
 
   it('uses the phone channel when the user has no email', async () => {
@@ -135,6 +151,7 @@ describe('AuthService.createOwnAccount (identity)', () => {
     expect(sessions.markVerificationPending).toHaveBeenCalledWith(
       session,
       'phone',
+      expect.anything(),
     );
     expect(otp.requestOtp).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -151,7 +168,7 @@ describe('AuthService.createOwnAccount (identity)', () => {
     await expect(
       service.createOwnAccount('bad', accountDto),
     ).rejects.toBeInstanceOf(UnauthorizedException);
-    expect(accounts.provisionOwnerAccount).not.toHaveBeenCalled();
+    expect(outbox.enqueue).not.toHaveBeenCalled();
   });
 
   it('reports already-created when the session is already verification_pending', async () => {
@@ -163,7 +180,7 @@ describe('AuthService.createOwnAccount (identity)', () => {
 
     const result = await service.createOwnAccount('raw-token', accountDto);
 
-    expect(accounts.provisionOwnerAccount).not.toHaveBeenCalled();
+    expect(outbox.enqueue).not.toHaveBeenCalled();
     expect(result.message).toMatch(/already created/i);
   });
 
