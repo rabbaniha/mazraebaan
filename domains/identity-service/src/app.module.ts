@@ -11,6 +11,7 @@ import { AuthModule } from './auth/auth.module';
 import { OtpVerificationsModule } from './otp-verifications/otp-verifications.module';
 import { AccessTokenGuard } from './auth/guards/access-token.guard';
 import { OnboardingModule } from './onboarding/onboarding.module';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { OnboardingModule } from './onboarding/onboarding.module';
     AuthModule,
     OtpVerificationsModule,
     OnboardingModule,
+    EventsModule,
   ],
   controllers: [AppController],
   providers: [
