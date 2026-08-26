@@ -15,6 +15,7 @@ import { RefreshTokenStrategy } from './strategies/refresh-token.strategy';
 import { JWT_CONFIG } from './jwt.config';
 import { AccessTokenGuard } from './guards/access-token.guard';
 import { OnboardingModule } from '../onboarding/onboarding.module';
+import { EventsModule } from '../events/events.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { OnboardingModule } from '../onboarding/onboarding.module';
     OtpVerificationsModule,
     RefreshTokensModule,
     OnboardingModule,
+    EventsModule,
     JwtKeysModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({

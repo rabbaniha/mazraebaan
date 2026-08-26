@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash, randomBytes } from 'node:crypto';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { OnboardingSession } from './entities/onboarding-session.entity';
 
 const TTL_MINUTES = 30;
@@ -46,13 +46,15 @@ export class OnboardingSessionService {
   async markVerificationPending(
     session: OnboardingSession,
     channel: 'email' | 'phone',
+    manager?: EntityManager,
   ) {
     if (session.status === 'verification_pending') return session;
     if (session.status !== 'account_required')
       throw new ConflictException('Account onboarding has already completed.');
     session.status = 'verification_pending';
     session.verificationChannel = channel;
-    return this.repo.save(session);
+    const repo = manager ? manager.getRepository(OnboardingSession) : this.repo;
+    return repo.save(session);
   }
 
   async complete(session: OnboardingSession) {

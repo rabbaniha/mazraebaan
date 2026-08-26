@@ -20,9 +20,20 @@ import { JwtPayload, TokenPair } from './interfaces/jwt-payload.interface';
 import { RefreshTokenAuthContext } from './strategies/refresh-token.strategy';
 import { OnboardingSessionService } from '../onboarding/onboarding-session.service';
 import { AccountsOnboardingClient } from '../onboarding/accounts-onboarding.client';
+import { OutboxService } from '../events/outbox.service';
 import { CreateAccountDto } from '../onboarding/dto/create-own-account.dto';
+import { Inject } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 
 const BCRYPT_ROUNDS = 12;
+
+/**
+ * Cross-service event (Critical Rule #2/#3): identity-service never calls
+ * accounts synchronously for writes — the provisioning request is committed
+ * to the outbox in the same transaction as the onboarding session update and
+ * relayed to RabbitMQ; accounts consumes it idempotently.
+ */
+export const ACCOUNT_PROVISIONING_REQUESTED = 'account.provisioning.requested';
 
 /** Captured request context stored on the refresh-token row. */
 export interface RequestContext {
@@ -70,6 +81,8 @@ export class AuthService {
     private readonly jwtKeys: JwtKeysService,
     private readonly onboardingSessions: OnboardingSessionService,
     private readonly accountsOnboarding: AccountsOnboardingClient,
+    private readonly outbox: OutboxService,
+    @Inject(DataSource) private readonly dataSource: DataSource,
   ) {}
 
   // ──────────────────────────────────────────────
@@ -155,12 +168,23 @@ export class AuthService {
     }
     const user = await this.usersService.findOne(session.userId);
     if (!user) throw new NotFoundException('User not found.');
-    const provisioned = await this.accountsOnboarding.provisionOwnerAccount(
-      user.id,
-      dto,
-    );
     const channel = user.email ? 'email' : 'phone';
-    await this.onboardingSessions.markVerificationPending(session, channel);
+
+    // Business write (session → verification_pending) and the outbox event
+    // commit atomically — provisioning is now asynchronous (Critical Rule #3).
+    await this.dataSource.transaction(async (manager) => {
+      await this.onboardingSessions.markVerificationPending(
+        session,
+        channel,
+        manager,
+      );
+      await this.outbox.enqueue(manager, {
+        eventType: ACCOUNT_PROVISIONING_REQUESTED,
+        aggregateType: 'onboarding_session',
+        aggregateId: session.id,
+        payload: { userId: user.id, account: dto },
+      });
+    });
     await this.otpService.requestOtp({
       purpose: channel === 'email' ? 'register_email' : 'register_phone',
       email: channel === 'email' ? (user.email ?? undefined) : undefined,
@@ -171,8 +195,8 @@ export class AuthService {
       userId: user.id,
     });
     return {
-      message: 'Account created. Verification code sent.',
-      accountId: provisioned.account.id,
+      message:
+        'Account creation in progress. Verification code sent. Check GET /me for the account state.',
       verificationChannel: channel,
     };
   }

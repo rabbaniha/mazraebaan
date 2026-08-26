@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import { InitialIdentitySchema1750000000001 } from './migrations/1750000000001-initial-identity-schema';
+import { CreateOutboxMessages1750000000003 } from './migrations/1750000000003-create-outbox-messages';
 
 /**
  * TypeORM DataSource for the Identity Service (`identity_db`).
@@ -17,7 +18,10 @@ export const AppDataSource = new DataSource({
   password: process.env.DB_PASS ?? 'mazraebaan_dev_pass',
   database: process.env.DB_NAME ?? 'identity_db',
   entities: [__dirname + '/**/*.entity{.ts,.js}'],
-  migrations: [InitialIdentitySchema1750000000001],
+  migrations: [
+    InitialIdentitySchema1750000000001,
+    CreateOutboxMessages1750000000003,
+  ],
   synchronize: false,
   logging: process.env.NODE_ENV === 'development',
 });

@@ -19,7 +19,10 @@ export class AccountInvitesController {
   // createdBy is the account owner/admin initiating the invite (Rule 5),
   // taken from the verified JWT `sub` claim (never client headers).
   @Post()
-  create(@CurrentUserId() createdBy: string, @Body() dto: CreateAccountInviteDto) {
+  create(
+    @CurrentUserId() createdBy: string,
+    @Body() dto: CreateAccountInviteDto,
+  ) {
     return this.accountInvitesService.create(dto, createdBy);
   }
 
