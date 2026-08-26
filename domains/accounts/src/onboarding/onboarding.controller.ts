@@ -4,29 +4,19 @@ import {
   Get,
   Headers,
   Param,
-  Post,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Public } from '../common/auth/public.decorator';
-import { ProvisionOwnerAccountDto } from './dto/provision-owner-account.dto';
 import { OnboardingService } from './onboarding.service';
 
 @Controller('internal/onboarding')
 export class OnboardingController {
   constructor(private readonly onboardingService: OnboardingService) {}
 
-  @Post('owner-account')
-  @Public()
-  provisionOwnerAccount(
-    @Body() dto: ProvisionOwnerAccountDto,
-    @Headers('x-internal-service-key') serviceKey?: string,
-  ) {
-    const expected = process.env.INTERNAL_SERVICE_API_KEY;
-    if (!expected || serviceKey !== expected) {
-      throw new UnauthorizedException('Invalid internal service credentials.');
-    }
-    return this.onboardingService.provisionOwnerAccount(dto);
-  }
+  // Owner-account provisioning moved to the RabbitMQ consumer
+  // (events/onboarding-events.consumer.ts) fed by identity-service's
+  // transactional outbox — cross-service writes are never synchronous HTTP
+  // (Critical Rules #2/#3). The read endpoints below remain sync by design.
 
   @Get('users/:userId/has-active-account')
   @Public()
