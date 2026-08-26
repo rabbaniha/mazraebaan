@@ -6,24 +6,21 @@ import {
   Patch,
   Param,
   Delete,
-  Headers,
 } from '@nestjs/common';
 import { AccountInvitesService } from './account-invites.service';
 import { CreateAccountInviteDto } from './dto/create-account-invite.dto';
 import { UpdateAccountInviteDto } from './dto/update-account-invite.dto';
+import { CurrentUserId } from '../common/auth/current-user.decorator';
 
 @Controller('account-invites')
 export class AccountInvitesController {
   constructor(private readonly accountInvitesService: AccountInvitesService) {}
 
-  // createdBy is the account owner/admin initiating the invite (Rule 5).
-  // TODO: replace x-user-id header with JWT claim forwarded by api-gateway.
+  // createdBy is the account owner/admin initiating the invite (Rule 5),
+  // taken from the verified JWT `sub` claim (never client headers).
   @Post()
-  create(
-    @Body() dto: CreateAccountInviteDto,
-    @Headers('x-user-id') createdBy?: string,
-  ) {
-    return this.accountInvitesService.create(dto, createdBy ?? '');
+  create(@CurrentUserId() createdBy: string, @Body() dto: CreateAccountInviteDto) {
+    return this.accountInvitesService.create(dto, createdBy);
   }
 
   @Get()
@@ -36,11 +33,10 @@ export class AccountInvitesController {
     return this.accountInvitesService.findOne(id);
   }
 
-  // userId comes from the invitee's authenticated identity (JWT).
-  // TODO: replace x-user-id header with JWT claim forwarded by api-gateway.
+  // userId comes from the invitee's verified JWT `sub` claim.
   @Post(':id/accept')
-  accept(@Param('id') id: string, @Headers('x-user-id') userId?: string) {
-    return this.accountInvitesService.accept(id, userId ?? '');
+  accept(@Param('id') id: string, @CurrentUserId() userId: string) {
+    return this.accountInvitesService.accept(id, userId);
   }
 
   @Post(':id/decline')
