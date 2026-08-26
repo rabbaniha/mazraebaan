@@ -25,8 +25,8 @@ import { OnboardingModule } from './onboarding/onboarding.module';
       password: process.env.DB_PASS ?? 'mazraebaan_dev_pass',
       database: process.env.DB_NAME ?? 'accounts_db',
       autoLoadEntities: true,
-      // Never auto-sync schema — use migrations for DDL changes.
-      synchronize: true,
+      // Never auto-sync — schema is owned by migrations (see src/migrations/).
+      synchronize: false,
     }),
     AccountsModule,
     AccountMembersModule,
